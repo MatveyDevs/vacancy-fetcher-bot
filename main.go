@@ -2,10 +2,14 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	tg "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"time"
 )
@@ -28,29 +32,46 @@ func main() {
 	}
 	defer db.Close()
 
+	v, err := HHRequest()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for i := 0; i < len(v.HHItems)-1; i++ {
+		fmt.Printf("%v\n", v.HHItems[i])
+	}
 }
 
 type HeadHunterResp struct {
-	HHItems Items `json:"items"`
+	HHItems []Item `json:"items"`
 }
 
-type Items struct {
-	Vacancies []Vacanci `json:""`
-}
-type Vacanci struct {
-	Name       string `json:"name"`
-	SalaryInfo Salary `json:"salary"`
-	AddressInfo Address `json:"address"`
-	PublishedAt time.Time `json:"published_at"`
-	CreatedAt time.Time `json:"created_at"`
-	URL string `json:"alternate_url"`
-	EmployerInfo Employer `json:"employer"`
-	Description Snippet `json:"snippet"`
-	ScheduleInfo Schedule `json:"schedule"`
+type Item struct {
+	Name           string     `json:"name"`
+	SalaryInfo     Salary     `json:"salary"`
+	AddressInfo    Address    `json:"address"`
+	PublishedAt    CustomTime `json:"published_at"`
+	CreatedAt      CustomTime `json:"created_at"`
+	URL            string     `json:"alternate_url"`
+	EmployerInfo   Employer   `json:"employer"`
+	Description    Snippet    `json:"snippet"`
+	ScheduleInfo   Schedule   `json:"schedule"`
 	ExperienceInfo Experience `json:"experience"`
 	EmploymentInfo Employment `json:"employment"`
 }
 
+type CustomTime struct {
+	time.Time
+}
+
+func (c *CustomTime) UnmarshalJSON(b []byte) error {
+	str := string(b[1 : len(b)-1])
+	t, err := time.Parse("2006-01-02T15:04:05+0300", str)
+	if err != nil {
+		return err
+	}
+	c.Time = t
+	return nil
+}
 
 type Salary struct {
 	From     int64  `json:"from"`
@@ -58,18 +79,18 @@ type Salary struct {
 	Currency string `json:"currency"`
 }
 type Address struct {
-	City string `json:"city"`
-	Street string `json:"street"`
+	City     string `json:"city"`
+	Street   string `json:"street"`
 	Building string `json:"building"`
-	Raw string `json:"raw"`
+	Raw      string `json:"raw"`
 }
 type Employer struct {
 	Name string `json:"name"`
 	//? trusted ?
 }
 type Snippet struct {
-	Requirement string `json:"requirement"`
-	Responsobility string `json:"responsobility"`
+	Requirement    string `json:"requirement"`
+	Responsibility string `json:"responsibility"`
 }
 type Schedule struct {
 	Name string `json:"name"`
@@ -79,6 +100,35 @@ type Experience struct {
 }
 type Employment struct {
 	Name string `json:"name"`
+}
+
+func HHRequest() (*HeadHunterResp, error) {
+	url := "https://api.hh.ru/vacancies?area=72&page=1"
+	r, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf(err.Error())
+	}
+	cl := &http.Client{}
+	resp, err := cl.Do(r)
+	defer resp.Body.Close()
+	if err != nil {
+		return nil, fmt.Errorf(err.Error())
+	}
+	b := &HeadHunterResp{}
+	w, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf(err.Error())
+	}
+	for i := 0; i < len(b.HHItems)-1; i++ {
+
+	}
+
+	err = json.Unmarshal(w, &b)
+	if err != nil {
+		return nil, fmt.Errorf(err.Error())
+	}
+
+	return b, nil
 }
 
 /*
@@ -187,88 +237,4 @@ type Employment struct {
 }
 */
 
-func GetHeadHunterQuery() {
-
-}
-
-// https://api.hh.ru/vacancies?area=72
-
-/* {
-    "id": "7760476",
-    "premium": true,
-    "has_test": true,
-    "response_url": null,
-    "address": null,
-    "alternate_url": "https://hh.ru/vacancy/7760476",
-    "apply_alternate_url": "https://hh.ru/applicant/vacancy_response?vacancyId=7760476",
-    "department": {
-        "id": "HH-1455-TECH",
-        "name": "HeadHunter::Технический департамент"
-    },
-    "salary": {
-        "to": null,
-        "from": 100000,
-        "currency": "RUR",
-        "gross": true
-    },
-    "name": "Специалист по автоматизации тестирования (Java, Selenium)",
-    "insider_interview": {
-        "id": "12345",
-        "url": "https://hh.ru/interview/12345?employerId=777"
-    },
-    "area": {
-        "url": "https://api.hh.ru/areas/1",
-        "id": "1",
-        "name": "Москва"
-    },
-    "url": "https://api.hh.ru/vacancies/7760476",
-    "published_at": "2013-10-11T13:27:16+0400",
-    "relations": [],
-    "employer": {
-        "url": "https://api.hh.ru/employers/1455",
-        "alternate_url": "https://hh.ru/employer/1455",
-        "logo_urls": {
-            "90": "https://hh.ru/employer-logo/289027.png",
-            "240": "https://hh.ru/employer-logo/289169.png",
-            "original": "https://hh.ru/file/2352807.png"
-        },
-        "name": "HeadHunter",
-        "id": "1455"
-    },
-    "response_letter_required": false,
-    "type": {
-        "id": "open",
-        "name": "Открытая"
-    },
-    "archived": "false",
-    "working_days": [
-        {
-            "id": "only_saturday_and_sunday",
-            "name": "Работа только по сб и вс"
-        }
-    ],
-    "working_time_intervals": [
-        {
-            "id": "from_four_to_six_hours_in_a_day",
-            "name": "Можно работать сменами по 4-6 часов в день"
-        }
-    ],
-    "working_time_modes": [
-        {
-            "id": "start_after_sixteen",
-            "name": "Можно начинать работать после 16-00"
-        }
-    ],
-    "accept_temporary": false,
-    "experience": {
-      "id": "noExperience",
-      "name": "Нет опыта"
-    },
-    "employment": {
-      "id": "full",
-      "name": "Полная занятость"
-    },
-    "show_logo_in_search": true
-}
-
-*/
+// https://api.hh.ru/vacancies?area=72&per_page=10&page=1
