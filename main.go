@@ -1,17 +1,14 @@
 package main
 
 import (
-	"database/sql"
-	"encoding/json"
 	"fmt"
 	tg "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/joho/godotenv"
-	_ "github.com/mattn/go-sqlite3"
-	"io"
+	"yandex-lms/internal/database"
+	"yandex-lms/internal/fetcher"
+
 	"log"
-	"net/http"
 	"os"
-	"time"
 )
 
 func main() {
@@ -26,109 +23,21 @@ func main() {
 	}
 	_ = bot
 
-	db, err := sql.Open("sqlite3", "file:db.db")
+	db, err := database.Init()
 	if err != nil {
 		log.Fatalf("[ERROR] Failed to connect to the database: %v", err)
 	}
-	defer db.Close()
+	defer db.DB.Close()
 
-	v, err := HHRequest()
+	fetcher := fetcher.New(os.Getenv("BASE_URL"))
+	vacs, err := fetcher.Fetch("1")
+	for _, vac := range vacs {
+		fmt.Printf("%+v", vac)
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
-	for i := 0; i < len(v.HHItems)-1; i++ {
-		fmt.Printf("%v\n", v.HHItems[i])
-	}
-}
-
-type HeadHunterResp struct {
-	HHItems []Item `json:"items"`
-}
-
-type Item struct {
-	Name           string     `json:"name"`
-	SalaryInfo     Salary     `json:"salary"`
-	AddressInfo    Address    `json:"address"`
-	PublishedAt    CustomTime `json:"published_at"`
-	CreatedAt      CustomTime `json:"created_at"`
-	URL            string     `json:"alternate_url"`
-	EmployerInfo   Employer   `json:"employer"`
-	Description    Snippet    `json:"snippet"`
-	ScheduleInfo   Schedule   `json:"schedule"`
-	ExperienceInfo Experience `json:"experience"`
-	EmploymentInfo Employment `json:"employment"`
-}
-
-type CustomTime struct {
-	time.Time
-}
-
-func (c *CustomTime) UnmarshalJSON(b []byte) error {
-	str := string(b[1 : len(b)-1])
-	t, err := time.Parse("2006-01-02T15:04:05+0300", str)
-	if err != nil {
-		return err
-	}
-	c.Time = t
-	return nil
-}
-
-type Salary struct {
-	From     int64  `json:"from"`
-	To       int64  `json:"to"`
-	Currency string `json:"currency"`
-}
-type Address struct {
-	City     string `json:"city"`
-	Street   string `json:"street"`
-	Building string `json:"building"`
-	Raw      string `json:"raw"`
-}
-type Employer struct {
-	Name string `json:"name"`
-	//? trusted ?
-}
-type Snippet struct {
-	Requirement    string `json:"requirement"`
-	Responsibility string `json:"responsibility"`
-}
-type Schedule struct {
-	Name string `json:"name"`
-}
-type Experience struct {
-	Name string `json:"name"`
-}
-type Employment struct {
-	Name string `json:"name"`
-}
-
-func HHRequest() (*HeadHunterResp, error) {
-	url := "https://api.hh.ru/vacancies?area=72&page=1"
-	r, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf(err.Error())
-	}
-	cl := &http.Client{}
-	resp, err := cl.Do(r)
-	defer resp.Body.Close()
-	if err != nil {
-		return nil, fmt.Errorf(err.Error())
-	}
-	b := &HeadHunterResp{}
-	w, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf(err.Error())
-	}
-	for i := 0; i < len(b.HHItems)-1; i++ {
-
-	}
-
-	err = json.Unmarshal(w, &b)
-	if err != nil {
-		return nil, fmt.Errorf(err.Error())
-	}
-
-	return b, nil
+	database.SaveVacancies(db.DB, vacs)
 }
 
 /*
