@@ -5,6 +5,11 @@ import (
 	"time"
 )
 
+type VacanciPublication struct {
+	URL              string
+	TgBotPublishedAt time.Time
+}
+
 type HHResponse struct {
 	HHItems []Item `json:"items"`
 }
@@ -67,5 +72,10 @@ func (c *CustomTime) UnmarshalJSON(b []byte) error {
 }
 
 func (s *Salary) GetSalary() string {
+	if s.From == 0 {
+		return "Уровень дохода не указан"
+	} else if s.To == 0 {
+		return fmt.Sprintf("От %d%s", s.From, s.Currency)
+	}
 	return fmt.Sprintf("%d - %d%s", s.From, s.To, s.Currency)
 }

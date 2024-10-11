@@ -1,6 +1,7 @@
 package fetcher
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,30 +16,37 @@ type Fetcher struct {
 }
 
 func New(baseURL string) *Fetcher {
+	timeout := time.Second * 10
 	return &Fetcher{
 		BaseURL: baseURL,
 		Client: &http.Client{
-			Timeout: 10 * time.Minute,
+			Timeout: timeout,
 		},
 	}
 }
 
-func (f *Fetcher) Fetch(page string) ([]models.Item, error) {
+func (f *Fetcher) Fetch(ctx context.Context, page string) ([]models.Item, error) {
 	url := fmt.Sprintf("%s%s", f.BaseURL, page)
-	r, err := f.Client.Get(url)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf(err.Error())
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	defer r.Body.Close()
+	resp, err := f.Client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get response: %w", err)
+	}
+	defer resp.Body.Close()
+
+	w, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
 
 	b := &models.HHResponse{}
-	w, err := io.ReadAll(r.Body)
-	if err != nil {
-		return nil, fmt.Errorf(err.Error())
-	}
 	err = json.Unmarshal(w, &b)
 	if err != nil {
-		return nil, fmt.Errorf(err.Error())
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	return b.HHItems, nil
