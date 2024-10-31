@@ -3,6 +3,7 @@ package bot
 import (
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"log"
 	"time"
 	"vacancy-fetcher-bot/internal/database"
 	"vacancy-fetcher-bot/internal/models"
@@ -14,12 +15,15 @@ type Bot struct {
 	DB        *database.Database
 }
 
-func New(token string, channelID int64, db *database.Database) (*Bot, error) {
+func New(token string, channelID int64, db *database.Database) *Bot {
 	api, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
-		return nil, err
+		log.Fatalf("[ERROR] Failed to get TG_BOT_TOKEN: %w", err)
+		return nil
 	}
-	return &Bot{api, channelID, db}, nil
+	bot := &Bot{api, channelID, db}
+	log.Printf("Authorized on account %s", bot.API.Self.UserName)
+	return bot
 }
 
 func (b *Bot) PostVacanci(vacanci models.Item) (*models.VacanciPublication, error) {

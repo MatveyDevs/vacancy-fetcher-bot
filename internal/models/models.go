@@ -45,7 +45,6 @@ type Address struct {
 }
 type Employer struct {
 	Name string `json:"name" db:"name"`
-	//? trusted ?
 }
 type Snippet struct {
 	Requirement    string `json:"requirement"`

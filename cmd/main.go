@@ -13,24 +13,16 @@ import (
 )
 
 func main() {
-	err := godotenv.Load()
+	err := godotenv.Load("../.env")
 	if err != nil {
 		log.Fatalf("[ERROR] Failed to get .env: %v", err)
 	}
-	db, err := database.Init()
-	if err != nil {
-		log.Fatalf("[ERROR] Failed to connect to the database: %w", err)
-	}
+	db := database.Init()
 	defer db.Conn.Close()
 
 	TGBotToken := os.Getenv("TG_BOT_TOKEN")
 	TGChannelID, _ := strconv.ParseInt(os.Getenv("TG_CHANNEL_ID"), 10, 64)
-
-	bot, err := bot.New(TGBotToken, TGChannelID, db)
-	if err != nil {
-		log.Fatalf("[ERROR] Failed to get TG_BOT_TOKEN: %w", err)
-	}
-	log.Printf("Authorized on account %s", bot.API.Self.UserName)
+	TGBot := bot.New(TGBotToken, TGChannelID, db)
 
 	f := fetcher.New(os.Getenv("BASE_URL"))
 	t, err := strconv.Atoi(os.Getenv("TIMEOUT"))
@@ -51,22 +43,18 @@ func main() {
 		if err != nil {
 			log.Println(err)
 		}
-
-		if err != nil {
-			log.Println(err)
-		}
 		for _, vac := range vacs {
-			isPublished, err := bot.DB.IsPublishedVacancy(vac)
+			isPublished, err := TGBot.DB.IsPublishedVacancy(vac)
 			if err != nil {
 				log.Println(err)
 				continue
 			}
 			if !isPublished {
-				postedVacanci, err := bot.PostVacanci(vac)
+				postedVacanci, err := TGBot.PostVacanci(vac)
 				if err != nil {
 					log.Println(err)
 				}
-				bot.DB.SaveVacancyPublication(postedVacanci)
+				TGBot.DB.SaveVacancyPublication(postedVacanci)
 				break
 			}
 		}

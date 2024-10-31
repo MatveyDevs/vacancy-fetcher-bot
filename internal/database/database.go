@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"log"
 	"vacancy-fetcher-bot/internal/models"
 )
 import _ "github.com/ncruces/go-sqlite3/driver"
@@ -11,13 +12,14 @@ type Database struct {
 	Conn *sql.DB
 }
 
-func Init() (*Database, error) {
-	conn, err := sql.Open("sqlite3", "file:db.db")
+func Init() *Database {
+	conn, err := sql.Open("sqlite3", "file:../db.db")
 	if err != nil {
-		return nil, err
+		log.Fatalf("[ERROR] Failed to connect to the database: %w", err)
+		return nil
 	}
 	db := &Database{conn}
-	return db, nil
+	return db
 }
 
 func (db *Database) SaveVacancies(vacancies []models.Item) error {
@@ -68,9 +70,9 @@ func (db *Database) SaveVacancyPublication(vacancy *models.VacanciPublication) e
 	return err
 }
 
-func (db *Database) IsPublishedVacancy(vac models.Item) (bool, error) {
+func (db *Database) IsPublishedVacancy(vacancy models.Item) (bool, error) {
 	var exists bool
-	err := db.Conn.QueryRow(`SELECT EXISTS(SELECT 1 FROM vacancy_publication WHERE vacancy_url = ?)`, vac.URL).Scan(&exists)
+	err := db.Conn.QueryRow(`SELECT EXISTS(SELECT 1 FROM vacancy_publication WHERE vacancy_url = ?)`, vacancy.URL).Scan(&exists)
 	if err != nil {
 		return false, err
 	}
